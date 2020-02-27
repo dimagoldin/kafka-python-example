@@ -1,0 +1,75 @@
+version: '2'
+services:
+  zookeeper:
+    hostname: localhost
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:5.3.2
+    network_mode: host
+    ports:
+      - 2181:2181
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_ADMIN_ENABLE_SERVER: "false"
+    restart: on-failure
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+    # To connect to kafka from outside of the host machine, with kafkatool, specify machineip:29092
+  kafka:
+    hostname: localhost
+    container_name: kafka
+    image: confluentinc/cp-enterprise-kafka:5.3.2
+    ports:
+      - 9092:9092
+      - 29092:29092
+    depends_on:
+      - zookeeper
+    network_mode: host
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'localhost:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXT_PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,EXT_PLAINTEXT://:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_LISTENERS: PLAINTEXT://localhost:9092,EXT_PLAINTEXT://:29092
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: 'localhost:9092'
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: 'localhost:2181'
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+    restart: on-failure
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  producer:
+    container_name: producer
+    network_mode: host
+    build: producer
+    restart: on-failure
+    environment:
+      COUNT: 10
+    depends_on:
+      - zookeeper
+      - kafka
+
+  consumer:
+    container_name: consumer
+    network_mode: host
+    build: consumer
+    restart: on-failure
+    depends_on:
+      - zookeeper
+      - kafka
+      - producer
+
